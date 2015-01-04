@@ -1,58 +1,20 @@
-/*
- * Firmata is a generic protocol for communicating with microcontrollers
- * from software on a host computer. It is intended to work with
- * any host computer software package.
- *
- * To download a host software package, please clink on the following link
- * to open the download page in your default browser.
- *
- * http://firmata.org/wiki/Download
- */
-
-/* Initial state copied from SimpleDigitalFirmata example. */
-
 #include <Firmata.h>
+#include <TCL.h>
 
-byte previousPIN[TOTAL_PORTS];  // PIN means PORT for input
-byte previousPORT[TOTAL_PORTS]; 
+const byte SYSEX_SET_COLORS = 1;
+const int LEDS = 50;
 
-void outputPort(byte portNumber, byte portValue)
-{
-    // only send the data when it changes, otherwise you get too many messages!
-    if (previousPIN[portNumber] != portValue) {
-        Firmata.sendDigitalPort(portNumber, portValue); 
-        previousPIN[portNumber] = portValue;
-    }
-}
-
-void setPinModeCallback(byte pin, int mode) {
-    if (IS_PIN_DIGITAL(pin)) {
-        pinMode(PIN_TO_DIGITAL(pin), mode);
-    }
-}
-
-void digitalWriteCallback(byte port, int value)
-{
-    byte i;
-    byte currentPinValue, previousPinValue;
-
-    if (port < TOTAL_PORTS && value != previousPORT[port]) {
-        for(i=0; i<8; i++) {
-            currentPinValue = (byte) value & (1 << i);
-            previousPinValue = previousPORT[port] & (1 << i);
-            if(currentPinValue != previousPinValue) {
-                digitalWrite(i + (port*8), currentPinValue);
-            }
-        }
-        previousPORT[port] = value;
-    }
-}
+byte strand[LEDS][3];
 
 void setup()
 {
+    TCL.begin();
+    TCL.setupDeveloperShield();
+
+    clearStrand();
+
     Firmata.setFirmwareVersion(0, 1);
-    Firmata.attach(DIGITAL_MESSAGE, digitalWriteCallback);
-    Firmata.attach(SET_PIN_MODE, setPinModeCallback);
+    Firmata.attach(START_SYSEX, sysexCallback);
     Firmata.begin(57600);
 }
 
@@ -60,11 +22,47 @@ void loop()
 {
     byte i;
 
-    for (i=0; i<TOTAL_PORTS; i++) {
-        outputPort(i, readPort(i, 0xff));
+    while(Firmata.available())
+    {
+        Firmata.processInput();
     }
 
-    while(Firmata.available()) {
-        Firmata.processInput();
+    updateStrand();
+}
+
+void sysexCallback(byte command, byte byteCount, byte *data)
+{
+    if (command == SYSEX_SET_COLORS)
+    {
+        int led = 0;
+        int color = 0;
+        for (int i = 0; i < byteCount; i++)
+        {
+            strand[led][color] = data[i];
+            color = (color + 1) % 3;
+            if (color == 0) led++;
+        }
+    }
+}
+
+void updateStrand()
+{
+    TCL.sendEmptyFrame();
+
+    for (int i = 0; i < LEDS; i++)
+    {
+        TCL.sendColor(strand[i][0], strand[i][1], strand[i][2]);
+    }
+
+    TCL.sendEmptyFrame();
+}
+
+void clearStrand()
+{
+    for (int i = 0; i < LEDS; i++)
+    {
+        strand[i][0] = 0;
+        strand[i][1] = 0;
+        strand[i][2] = 0;
     }
 }
