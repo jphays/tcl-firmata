@@ -26,7 +26,7 @@ void loop()
     }
 }
 
-void sysexCallback(byte command, byte byteCount, byte *data)
+void sysexCallback(byte command, int byteCount, byte *data)
 {
     if (command == SYSEX_SET_COLORS)
     {
@@ -40,7 +40,6 @@ void sysexCallback(byte command, byte byteCount, byte *data)
         }
 
         updateStrand();
-        Firmata.sendSysex(command, byteCount, data); // callback
     }
 }
 
@@ -64,4 +63,5 @@ void clearStrand()
         strand[i][1] = 0;
         strand[i][2] = 0;
     }
+    updateStrand();
 }
