@@ -20,14 +20,10 @@ void setup()
 
 void loop()
 {
-    byte i;
-
     while(Firmata.available())
     {
         Firmata.processInput();
     }
-
-    updateStrand();
 }
 
 void sysexCallback(byte command, byte byteCount, byte *data)
@@ -42,6 +38,9 @@ void sysexCallback(byte command, byte byteCount, byte *data)
             color = (color + 1) % 3;
             if (color == 0) led++;
         }
+
+        updateStrand();
+        Firmata.sendSysex(command, byteCount, data); // callback
     }
 }
 
